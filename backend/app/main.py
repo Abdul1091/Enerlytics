@@ -1,11 +1,12 @@
 from fastapi import FastAPI
 
-from api.routes import router
+from app.api.routes import router
+from app.core.config import settings
 
 app = FastAPI(
-    title="Enerlytics API",
-    description="AI-powered energy intelligence platform",
-    version="0.1.0",
+    title=settings.APP_NAME,
+    description=settings.APP_DESCRIPTION,
+    version=settings.APP_VERSION
 )
 
 
