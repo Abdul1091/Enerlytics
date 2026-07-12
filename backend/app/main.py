@@ -1,7 +1,12 @@
 from fastapi import FastAPI
 
-app = FastAPI()
+from api.routes import router
 
-@app.get("/")
-def root():
-    return {"message": "Welcome to Enerlytics API"}
+app = FastAPI(
+    title="Enerlytics API",
+    description="AI-powered energy intelligence platform",
+    version="0.1.0",
+)
+
+
+app.include_router(router)
