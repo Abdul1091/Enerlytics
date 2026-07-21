@@ -1,3 +1,3 @@
-from app.db.models.report import Report
+from app.db.models.report import ReportModel
 
-__all__ = ["Report"]
+__all__ = ["ReportModel"]
