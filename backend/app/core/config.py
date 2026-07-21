@@ -17,3 +17,9 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+class TestSettings(Settings):
+    model_config = SettingsConfigDict(
+        env_file=".env.test",
+        extra="ignore",
+    )
