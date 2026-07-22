@@ -5,6 +5,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 from app.domain.reporting.enums import ReportStatus
+from app.domain.reporting.query import ReportQuery
 
 
 def test_save_report(repository, report):
@@ -17,7 +18,7 @@ def test_save_report(repository, report):
     assert saved.description == report.description
     assert saved.location.latitude == report.location.latitude
     assert saved.location.longitude == report.location.longitude
-    assert saved.status == ReportStatus.SUBMITTED
+    assert saved.status == ReportStatus.SUBMITTED.value
 
 
 def test_get_existing_report(repository, report):
@@ -49,10 +50,11 @@ def test_list_reports(repository, report):
     """
     repository.save(report)
 
-    reports = repository.list()
+    page = repository.list(ReportQuery())
 
-    assert len(reports) == 1
-    assert reports[0].id == report.id
+    assert page.total == 1
+    assert len(page.items) == 1
+    assert page.items[0].id == report.id
 
 
 def test_delete_report(repository, report):
@@ -78,7 +80,7 @@ def test_update_existing_report(repository, report):
     updated = repository.get_by_id(report.id)
 
     assert updated is not None
-    assert updated.status == ReportStatus.UNDER_REVIEW
+    assert updated.status == ReportStatus.UNDER_REVIEW.value
 
 
 def test_multiple_reports(repository, report):
@@ -88,6 +90,7 @@ def test_multiple_reports(repository, report):
     repository.save(report)
 
     second = report.__class__(
+        id=uuid4(),
         report_type=report.report_type,
         location=report.location,
         observed_at=report.observed_at,
@@ -96,6 +99,7 @@ def test_multiple_reports(repository, report):
 
     repository.save(second)
 
-    reports = repository.list()
+    page = repository.list(ReportQuery())
 
-    assert len(reports) == 2
+    assert page.total == 2
+    assert len(page.items) == 2
