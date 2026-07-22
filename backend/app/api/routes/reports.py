@@ -18,6 +18,14 @@ from app.domain.reporting.value_objects import (
     GeoLocation,
     ObservationTime,
 )
+from app.api.schemas.report_query import (
+    ReportPageResponse,
+    ReportQueryParams,
+)
+
+from app.api.mappers.report_query_mapper import (
+    ReportQueryMapper,
+)
 
 from app.api.mappers import APIReportMapper
 
@@ -77,3 +85,32 @@ def get_report(
         )
 
     return APIReportMapper.from_domain(report)
+
+
+@router.get(
+    "",
+    response_model=ReportPageResponse,
+)
+def list_reports(
+    params: Annotated[
+        ReportQueryParams,
+        Depends(),
+    ],
+    service: Annotated[
+        ReportService,
+        Depends(get_report_service),
+    ],
+):
+    query = ReportQueryMapper.to_domain(params)
+
+    page = service.list_reports(query)
+
+    return ReportPageResponse(
+        items=[
+            APIReportMapper.from_domain(report)
+            for report in page.items
+        ],
+        total=page.total,
+        limit=page.limit,
+        offset=page.offset,
+    )
