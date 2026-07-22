@@ -23,11 +23,24 @@ from app.api.schemas.report_query import (
     ReportQueryParams,
 )
 
-from app.api.mappers.report_query_mapper import (
-    ReportQueryMapper,
+from app.api.dependencies import (
+    get_report_analyzer,
+    get_report_service,
 )
 
-from app.api.mappers import APIReportMapper
+from app.api.schemas.report_analysis import (
+    ReportAnalysisResponse,
+)
+
+from app.infrastructure.ai.analyzer import (
+    ReportAnalyzer,
+)
+
+from app.api.mappers import (
+    APIReportMapper,
+    ReportAnalysisMapper,
+    ReportQueryMapper,
+)
 
 router = APIRouter(
     prefix="/reports",
@@ -113,4 +126,37 @@ def list_reports(
         total=page.total,
         limit=page.limit,
         offset=page.offset,
+    )
+
+
+@router.get(
+    "/{report_id}/analysis",
+    response_model=ReportAnalysisResponse,
+)
+def analyze_report(
+    report_id: UUID,
+    service: Annotated[
+        ReportService,
+        Depends(get_report_service),
+    ],
+    analyzer: Annotated[
+        ReportAnalyzer,
+        Depends(get_report_analyzer),
+    ],
+):
+    """
+    Generate an AI analysis for a report.
+    """
+    report = service.get_report(report_id)
+
+    if report is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found.",
+        )
+
+    analysis = analyzer.analyze(report)
+
+    return ReportAnalysisMapper.from_domain(
+        analysis
     )

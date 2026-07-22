@@ -243,3 +243,33 @@ def test_sort_ascending(client):
     page = response.json()
 
     assert page["items"][0]["id"] == oldest["id"]
+
+
+def test_analyze_existing_report(client):
+    created = create_report(
+        client,
+        description="Transformer explosion with sparks.",
+    )
+
+    response = client.get(
+        f"/reports/{created['id']}/analysis"
+    )
+
+    assert response.status_code == 200
+
+    analysis = response.json()
+
+    assert analysis["severity"] == "critical"
+    assert analysis["confidence"] >= 0.90
+    assert len(analysis["evidence"]) > 0
+    assert len(
+        analysis["recommended_actions"]
+    ) > 0
+
+
+def test_analyze_unknown_report(client):
+    response = client.get(
+        f"/reports/{uuid4()}/analysis"
+    )
+
+    assert response.status_code == 404
