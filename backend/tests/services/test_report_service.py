@@ -9,6 +9,8 @@ import pytest
 from app.domain.reporting.report import Report
 from app.domain.reporting.repository import ReportRepository
 from app.domain.reporting.service import ReportService
+from app.domain.reporting.query import ReportQuery
+from app.domain.reporting.page import ReportPage
 
 
 class FakeReportRepository(ReportRepository):
@@ -24,8 +26,15 @@ class FakeReportRepository(ReportRepository):
     def get_by_id(self, report_id: UUID) -> Report | None:
         return self._reports.get(report_id)
 
-    def list(self) -> list[Report]:
-        return list(self._reports.values())
+    def list(self, query: ReportQuery) -> ReportPage:
+        reports = list(self._reports.values())
+
+        return ReportPage(
+            items=reports,
+            total=len(reports),
+            limit=query.limit,
+            offset=query.offset,
+        )
     
     def delete(self, report_id: UUID) -> None:
         """Implement the required abstract delete method."""
@@ -89,7 +98,8 @@ def test_list_reports(
 ):
     repository.save(report)
 
-    reports = service.list_reports()
+    page = service.list_reports(ReportQuery())
 
-    assert len(reports) == 1
-    assert reports[0] == report
+    assert page.total == 1
+    assert len(page.items) == 1
+    assert page.items[0] == report

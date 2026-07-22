@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from uuid import UUID
 
 from .report import Report
+from .page import ReportPage
+from .query import ReportQuery
 
 
 class ReportRepository(ABC):
@@ -27,8 +29,11 @@ class ReportRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def list(self) -> list[Report]:
-        """Return all reports."""
+    def list(
+        self,
+        query: ReportQuery,
+    ) -> ReportPage:
+        """Retrieve reports matching a query."""
         raise NotImplementedError
 
     @abstractmethod

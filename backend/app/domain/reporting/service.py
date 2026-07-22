@@ -5,6 +5,8 @@ from __future__ import annotations
 from .report import Report
 from .repository import ReportRepository
 from .value_objects import ConfidenceScore
+from .page import ReportPage
+from .query import ReportQuery
 
 
 class ReportService:
@@ -30,6 +32,9 @@ class ReportService:
         """Retrieve a report by its identifier."""
         return self._repository.get_by_id(report_id)
 
-    def list_reports(self):
-        """Return all reports."""
-        return self._repository.list()
+    def list_reports(
+            self,
+            query: ReportQuery,
+        )-> ReportPage:
+        """Retrieve reports matching a query."""
+        return self._repository.list(query)
