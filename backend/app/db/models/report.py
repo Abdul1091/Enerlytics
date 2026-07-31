@@ -5,12 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import DateTime, Enum, Float, Text
+from sqlalchemy import DateTime, Enum, Float, Text, String
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.domain.reporting.enums import ReportStatus, ReportType
+
+from app.domain.analysis.enums import SeverityLevel
 
 
 class ReportModel(Base):
@@ -49,6 +51,26 @@ class ReportModel(Base):
         nullable=False,
     )
 
+    state: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    lga: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    landmark: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    reporter_phone: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+    )
+
     description: Mapped[str] = mapped_column(
         Text,
         nullable=False,
@@ -82,4 +104,15 @@ class ReportModel(Base):
     reporter_id: Mapped[UUID | None] = mapped_column(
         PGUUID(as_uuid=True),
         nullable=True,
+    )
+
+    severity: Mapped[SeverityLevel] = mapped_column(
+        Enum(
+            SeverityLevel,
+            name="severity_level",
+            native_enum=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+        default=SeverityLevel.LOW,
     )

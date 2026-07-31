@@ -29,6 +29,30 @@ class ReportCreate(BaseModel):
         description="Longitude of the observation.",
     )
 
+    state: str | None = Field(
+        None,
+        max_length=100,
+        description="State where the incident occurred.",
+    )
+
+    lga: str | None = Field(
+        None,
+        max_length=100,
+        description="Local Government Area where the incident occurred.",
+    )
+
+    landmark: str | None = Field(
+        None,
+        max_length=255,
+        description="Nearest landmark to assist field operators.",
+    )
+
+    reporter_phone: str | None = Field(
+        None,
+        max_length=20,
+        description="Contact phone number of the reporter.",
+    )
+
     description: str = Field(
         min_length=5,
         max_length=5000,
@@ -54,6 +78,14 @@ class ReportResponse(BaseModel):
 
     longitude: float
 
+    state: str | None
+
+    lga: str | None
+
+    landmark: str | None
+
+    reporter_phone: str | None
+
     description: str
 
     observed_at: datetime
@@ -65,3 +97,7 @@ class ReportResponse(BaseModel):
     confidence_score: float
 
     reporter_id: UUID | None
+
+
+class ReportStatusUpdate(BaseModel):
+    status: ReportStatus

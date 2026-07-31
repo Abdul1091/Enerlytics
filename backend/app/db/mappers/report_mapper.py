@@ -35,6 +35,11 @@ class DatabaseReportMapper:
             status=report.status,
             confidence_score=report.confidence_score.value,
             reporter_id=report.reporter_id,
+            severity=report.severity,
+            state=report.state,
+            lga=report.lga,
+            landmark=report.landmark,
+            reporter_phone=report.reporter_phone,
         )
 
     @staticmethod
@@ -57,4 +62,9 @@ class DatabaseReportMapper:
             ),
             submitted_at=model.submitted_at,
             reporter_id=model.reporter_id,
+            severity=model.severity,
+            state=model.state,
+            lga=model.lga,
+            landmark=model.landmark,
+            reporter_phone=model.reporter_phone,
         )
