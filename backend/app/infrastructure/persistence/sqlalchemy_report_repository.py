@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from uuid import UUID
 
+from sqlalchemy import String, func
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
-from app.domain.reporting.page import ReportPage
-from app.domain.reporting.query import ReportQuery
 from app.db.mappers.report_mapper import DatabaseReportMapper
 from app.db.models.report import ReportModel
+from app.domain.reporting.page import ReportPage
+from app.domain.reporting.query import ReportQuery
 from app.domain.reporting.report import Report
 from app.domain.reporting.repository import ReportRepository
 
@@ -131,3 +132,128 @@ class SQLAlchemyReportRepository(ReportRepository):
 
         self._session.delete(model)
         self._session.commit()
+
+    def get_dashboard_stats(self) -> dict:
+        """
+        Compute real-time aggregate statistics for the dashboard.
+        """
+        # 1. Total Count
+        total_reports = self._session.query(func.count(ReportModel.id)).scalar() or 0
+
+        # 2. Status Counts
+        status_rows = (
+            self._session.query(
+                ReportModel.status, 
+                func.count(ReportModel.id)
+            )
+            .group_by(ReportModel.status)
+            .all()
+        )
+
+        status_counts = {}
+        for st, count in status_rows:
+            if st is not None:
+                key = str(st.value if hasattr(st, "value") else st).lower()
+                status_counts[key] = count
+
+        pending_count = (
+            status_counts.get("submitted", 0)
+            + status_counts.get("under_review", 0)
+            + status_counts.get("pending", 0)
+        )
+        resolved_count = status_counts.get("resolved", 0)
+        verified_count = status_counts.get("validated", 0) or status_counts.get("verified", 0)
+        rejected_count = status_counts.get("rejected", 0)
+
+        # 3. Average AI Confidence Score
+        avg_confidence = self._session.query(
+            func.avg(ReportModel.confidence_score)
+        ).scalar() or 0.0
+
+        # 4. Report Type Distribution
+        type_rows = (
+            self._session.query(
+                ReportModel.report_type, 
+                func.count(ReportModel.id)
+            )
+            .group_by(ReportModel.report_type)
+            .all()
+        )
+        
+        type_distribution = {}
+        for r_type, count in type_rows:
+            if r_type is not None:
+                key = str(r_type.value if hasattr(r_type, "value") else r_type).lower()
+                type_distribution[key] = count
+
+        # 5. Report Severity Distribution
+        severity_rows = (
+            self._session.query(
+                ReportModel.severity, 
+                func.count(ReportModel.id)
+            )
+            .group_by(ReportModel.severity)
+            .all()
+        )
+
+        severity_distribution = {}
+        for sev, count in severity_rows:
+            if sev is not None:
+                key = str(sev.value if hasattr(sev, "value") else sev).lower()
+                severity_distribution[key] = count
+            else:
+                severity_distribution["low"] = severity_distribution.get("low", 0) + count
+
+        return {
+            "total_reports": total_reports,
+            "pending_count": pending_count,
+            "resolved_count": resolved_count,
+            "verified_count": verified_count,
+            "rejected_count": rejected_count,
+            "avg_confidence_score": round(float(avg_confidence) * 100, 1) if avg_confidence else 0.0,
+            "type_distribution": type_distribution,
+            "severity_distribution": severity_distribution,
+        }
+
+    def get_incident_trends(self, days: int = 7) -> list[dict]:
+        """
+        Groups total and critical report counts by date for the last N days.
+        """
+        cutoff_date = datetime.utcnow() - timedelta(days=days)
+
+        total_results = (
+            self._session.query(
+                func.date(ReportModel.submitted_at).label("trend_date"),
+                func.count(ReportModel.id).label("count")
+            )
+            .filter(ReportModel.submitted_at >= cutoff_date)
+            .group_by(func.date(ReportModel.submitted_at))
+            .all()
+        )
+
+        critical_results = (
+            self._session.query(
+                func.date(ReportModel.submitted_at).label("trend_date"),
+                func.count(ReportModel.id).label("count")
+            )
+            .filter(
+                ReportModel.submitted_at >= cutoff_date,
+                func.lower(func.cast(ReportModel.severity, String)).in_(["critical", "high"])
+            )
+            .group_by(func.date(ReportModel.submitted_at))
+            .all()
+        )
+
+        total_counts = {str(r.trend_date): r.count for r in total_results}
+        critical_counts = {str(r.trend_date): r.count for r in critical_results}
+
+        trend_data = []
+        for i in range(days - 1, -1, -1):
+            day_date = (datetime.utcnow() - timedelta(days=i)).strftime("%Y-%m-%d")
+            trend_data.append({
+                "date": day_date,
+                "total": total_counts.get(day_date, 0),
+                "critical": critical_counts.get(day_date, 0)
+            })
+
+        return trend_data

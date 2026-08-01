@@ -57,32 +57,30 @@ class RuleBasedReportAnalyzer(ReportAnalyzer):
         matched_high = [kw for kw in self.HIGH_KEYWORDS if kw in desc_lower]
         matched_medium = [kw for kw in self.MEDIUM_KEYWORDS if kw in desc_lower]
 
-        score = 0
-
-        score += len(matched_medium)
-        score += len(matched_high) * 2
-        score += len(matched_critical) * 3
-
-        if score >= 3:
+        # 1. Immediate Safety Hazards always take priority for CRITICAL
+        if matched_critical:
             severity = SeverityLevel.CRITICAL
             confidence = 0.95
             evidence.append(f"Safety hazard detected: matched terms {matched_critical}")
             recommended_actions.append("Dispatch emergency technical field team immediately.")
             recommended_actions.append("Isolate local feeder branch to prevent electrical shock/fire.")
 
-        elif score >= 2:
+        # 2. Grid disruptions (blackouts, feeder trips, substation faults) map to HIGH
+        elif matched_high:
             severity = SeverityLevel.HIGH
             confidence = 0.85
             evidence.append(f"Grid disruption identified: matched terms {matched_high}")
             recommended_actions.append("Verify primary substation status with DisCo operator.")
             recommended_actions.append("Notify regional control center for load redistribution.")
 
-        elif score >= 1:
+        # 3. Quality issues (voltage fluctuations, dim lights) map to MEDIUM
+        elif matched_medium:
             severity = SeverityLevel.MEDIUM
             confidence = 0.75
             evidence.append(f"Power quality issue detected: matched terms {matched_medium}")
             recommended_actions.append("Schedule distribution transformer load balancing test.")
 
+        # 4. Standard observation fallback
         else:
             severity = SeverityLevel.LOW
             confidence = 0.60

@@ -7,10 +7,32 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.dependencies import get_report_service
+from app.api.dependencies import (
+    get_report_analyzer,
+    get_report_service,
+)
+from app.api.security import get_current_admin
+
+from app.api.mappers import (
+    APIReportMapper,
+    ReportAnalysisMapper,
+    ReportQueryMapper,
+)
 from app.api.schemas.report import (
     ReportCreate,
     ReportResponse,
+    ReportStatusUpdate,
+)
+from app.api.schemas.report_analysis import (
+    ReportAnalysisResponse,
+)
+from app.api.schemas.report_query import (
+    ReportPageResponse,
+    ReportQueryParams,
+)
+from app.api.schemas.report_stats import (
+    ReportStatsResponse,
+    ReportTrendsResponse,
 )
 from app.domain.reporting.report import Report
 from app.domain.reporting.service import ReportService
@@ -18,28 +40,8 @@ from app.domain.reporting.value_objects import (
     GeoLocation,
     ObservationTime,
 )
-from app.api.schemas.report_query import (
-    ReportPageResponse,
-    ReportQueryParams,
-)
-
-from app.api.dependencies import (
-    get_report_analyzer,
-    get_report_service,
-)
-
-from app.api.schemas.report_analysis import (
-    ReportAnalysisResponse,
-)
-
 from app.infrastructure.ai.analyzer import (
     ReportAnalyzer,
-)
-
-from app.api.mappers import (
-    APIReportMapper,
-    ReportAnalysisMapper,
-    ReportQueryMapper,
 )
 
 router = APIRouter(
@@ -52,6 +54,7 @@ router = APIRouter(
     "",
     response_model=ReportResponse,
     status_code=status.HTTP_201_CREATED,
+    summary="Submit an incident report",
 )
 def create_report(
     payload: ReportCreate,
@@ -60,6 +63,9 @@ def create_report(
         Depends(get_report_service),
     ],
 ):
+    """
+    Submit a new incident report with geographic context and reporter details.
+    """
     report = Report(
         report_type=payload.report_type,
         location=GeoLocation(
@@ -71,11 +77,106 @@ def create_report(
         ),
         description=payload.description,
         reporter_id=payload.reporter_id,
+        state=payload.state,
+        lga=payload.lga,
+        landmark=payload.landmark,
+        reporter_phone=payload.reporter_phone,
     )
 
-    report = service.submit_report(report)
+    submitted_report = service.submit_report(report)
 
-    return APIReportMapper.from_domain(report)
+    return APIReportMapper.from_domain(submitted_report)
+
+
+@router.post(
+    "/public",
+    response_model=ReportResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Submit a public citizen report",
+)
+def create_public_report(
+    payload: ReportCreate,
+    service: Annotated[
+        ReportService,
+        Depends(get_report_service),
+    ],
+):
+    """
+    Unauthenticated public alias endpoint for citizen reporting.
+    """
+    return create_report(payload=payload, service=service)
+
+
+@router.get(
+    "/stats",
+    response_model=ReportStatsResponse,
+)
+def get_report_stats(
+    _: Annotated[
+        str,
+        Depends(get_current_admin),
+    ],
+    service: Annotated[
+        ReportService,
+        Depends(get_report_service),
+    ],
+):
+    """
+    Get live aggregate dashboard statistics.
+    """
+    stats = service._repository.get_dashboard_stats()
+    return stats
+
+
+@router.get(
+    "/trends",
+    response_model=ReportTrendsResponse,
+)
+def get_report_trends(
+    _: Annotated[
+        str,
+        Depends(get_current_admin),
+    ],
+    service: Annotated[
+        ReportService,
+        Depends(get_report_service),
+    ],
+    days: int = 7,
+):
+    """
+    Get live daily incident trend time-series metrics.
+    """
+    trends = service._repository.get_incident_trends(days=days)
+    return {"trends": trends}
+
+
+@router.patch(
+    "/{report_id}/status",
+    response_model=ReportResponse,
+)
+def update_report_status(
+    report_id: UUID,
+    payload: ReportStatusUpdate,
+    _: Annotated[
+        str,
+        Depends(get_current_admin),
+    ],
+    service: Annotated[
+        ReportService,
+        Depends(get_report_service),
+    ],
+):
+    """
+    Update the processing or operational status of a report.
+    """
+    try:
+        updated_report = service.update_report_status(report_id, payload.status)
+        return APIReportMapper.from_domain(updated_report)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
 
 
 @router.get(
@@ -84,6 +185,10 @@ def create_report(
 )
 def get_report(
     report_id: UUID,
+    _: Annotated[
+        str,
+        Depends(get_current_admin),
+    ],
     service: Annotated[
         ReportService,
         Depends(get_report_service),
@@ -93,7 +198,7 @@ def get_report(
 
     if report is None:
         raise HTTPException(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             detail="Report not found.",
         )
 
@@ -105,6 +210,10 @@ def get_report(
     response_model=ReportPageResponse,
 )
 def list_reports(
+    _: Annotated[
+        str,
+        Depends(get_current_admin),
+    ],
     params: Annotated[
         ReportQueryParams,
         Depends(),
@@ -135,6 +244,10 @@ def list_reports(
 )
 def analyze_report(
     report_id: UUID,
+    _: Annotated[
+        str,
+        Depends(get_current_admin),
+    ],
     service: Annotated[
         ReportService,
         Depends(get_report_service),
@@ -157,6 +270,4 @@ def analyze_report(
 
     analysis = analyzer.analyze(report)
 
-    return ReportAnalysisMapper.from_domain(
-        analysis
-    )
+    return ReportAnalysisMapper.from_domain(analysis)

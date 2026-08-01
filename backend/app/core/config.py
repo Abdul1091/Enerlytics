@@ -15,6 +15,11 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
+    SECRET_KEY: str
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD_HASH: str
+
 
 settings = Settings()
 
